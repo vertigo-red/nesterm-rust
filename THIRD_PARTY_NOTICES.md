@@ -29,4 +29,10 @@ provided there under MPL-2.0. Rust standard-library notices are copied from the
 build toolchain into `licenses/Rust-COPYRIGHT-library.html`. Static Linux builds
 also include the musl copyright notice.
 
+The macOS dependencies `block2 0.6.2`, `dispatch2 0.3.1`, `objc2 0.6.5`, and
+`objc2-encode 4.1.0` omit their workspace's license files from the published
+crates. Their shared [MIT notice](https://github.com/madsmtm/objc2/blob/main/LICENSE-MIT.txt)
+is preserved in `licenses/objc2-workspace-MIT.txt`; releases include it under
+each dependency's directory as well.
+
 No Node.js runtime, JavaScript NES core, GUI, or commercial ROM is bundled.

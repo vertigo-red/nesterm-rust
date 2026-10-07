@@ -100,7 +100,7 @@ jobs:
       - name: POSIX PTY integration
         if: runner.os != 'Windows'
         run: python scripts/pty-smoke.py target/${{ matrix.target }}/release/nesterm
-      - name: Package executable and notices
+      - name: Package executable and dependency notices
         run: python scripts/package-release.py --target '${{ matrix.target }}'
       - uses: actions/upload-artifact@v4
         with:

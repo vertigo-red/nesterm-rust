@@ -19,6 +19,13 @@ TARGETS = (
     "x86_64-apple-darwin",
     "x86_64-pc-windows-msvc",
 )
+FALLBACK_NOTICES = {
+    ("tetanes-core", "0.17.0"): "tetanes-core-MIT.txt",
+    ("block2", "0.6.2"): "objc2-workspace-MIT.txt",
+    ("dispatch2", "0.3.1"): "objc2-workspace-MIT.txt",
+    ("objc2", "0.6.5"): "objc2-workspace-MIT.txt",
+    ("objc2-encode", "4.1.0"): "objc2-workspace-MIT.txt",
+}
 
 
 def output(*command):
@@ -61,8 +68,9 @@ def dependency_notices(target):
                        ("LICENSE", "LICENCE", "COPYING", "NOTICE", "UNLICENSE"))}
         if package["license_file"]:
             notices.add(base / package["license_file"])
-        if package["name"] == "tetanes-core" and not notices:
-            files[f"{prefix}/LICENSE-MIT"] = (ROOT / "licenses/tetanes-core-MIT.txt").read_bytes()
+        fallback = FALLBACK_NOTICES.get((package["name"], package["version"]))
+        if fallback and not notices:
+            files[f"{prefix}/LICENSE-MIT"] = (ROOT / "licenses" / fallback).read_bytes()
         elif not notices:
             raise ValueError(f"No license notice found for {package['name']}")
         for path in sorted(notices):
