@@ -15,6 +15,8 @@ fn options_match_upstream_defaults_and_accept_both_sizes() {
     let defaults = parse(&["game.nes"]).unwrap();
     assert_eq!((defaults.cols, defaults.rows, defaults.fps), (40, 25, 30.0));
     assert!(defaults.color);
+    assert!(defaults.text);
+    assert!(defaults.text_font.is_none());
     let options = parse(&[
         "--mono",
         "--mode",
@@ -61,9 +63,42 @@ fn rejects_missing_ambiguous_and_invalid_arguments() {
         vec!["--record"],
         vec!["--fps", "--mono", "a"],
         vec!["--unknown", "a"],
+        vec!["--text", "ocr", "a"],
+        vec!["--text", "off", "--text-font", "font.json", "a"],
+        vec!["--text"],
+        vec!["--text-font"],
     ] {
         assert!(parse(&args).is_err(), "{args:?}");
     }
+}
+
+#[test]
+fn text_can_be_disabled_or_extended_with_a_font() {
+    assert!(!parse(&["game.nes", "--text", "off"]).unwrap().text);
+    let options = parse(&["--text-font", "my-font.json", "--text", "auto", "game.nes"]).unwrap();
+    assert!(options.text);
+    assert_eq!(options.text_font.unwrap().to_str(), Some("my-font.json"));
+}
+
+#[test]
+fn a_bad_font_fails_before_terminal_entry_or_recording_creation() {
+    let temp = common::TempDir::new();
+    let rom = temp.0.join("fixture.nes");
+    let font = temp.0.join("font.json");
+    let cast = temp.0.join("out.cast");
+    fs::write(&rom, common::nrom()).unwrap();
+    fs::write(&font, "{bad json}").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_nesterm"))
+        .arg(&rom)
+        .arg("--text-font")
+        .arg(&font)
+        .arg("--record")
+        .arg(&cast)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(!cast.exists());
 }
 
 #[cfg(unix)]

@@ -1,5 +1,6 @@
 use crate::{Result, renderer::AsciiFrame};
 use std::fmt::Write;
+use unicode_width::UnicodeWidthChar;
 
 pub const ENTER_SEQUENCE: &str = "\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H\x1b[40m\x1b[97m\x1b[>3u";
 pub const EXIT_SEQUENCE: &str = "\x1b[<u\x1b[0m\x1b[?25h\x1b[?1049l";
@@ -18,6 +19,13 @@ fn validate(frame: &AsciiFrame, color: bool) -> Result<()> {
     if frame.chars.iter().any(|c| !(32..=126).contains(c)) {
         return Err("frame.chars must contain printable ASCII only".into());
     }
+    if frame
+        .unicode
+        .iter()
+        .any(|(&index, &c)| index >= cells || c.is_control() || c.width() != Some(1))
+    {
+        return Err("recognized text must contain safe single-column characters".into());
+    }
     if color && frame.colors.len() != cells {
         return Err(format!("frame.colors must contain exactly {cells} colors").into());
     }
@@ -25,7 +33,7 @@ fn validate(frame: &AsciiFrame, color: bool) -> Result<()> {
 }
 
 fn changed(frame: &AsciiFrame, previous: &AsciiFrame, i: usize, color: bool) -> bool {
-    frame.chars[i] != previous.chars[i]
+    frame.character(i) != previous.character(i)
         || (color && (frame.colors[i] & 0xffffff) != (previous.colors[i] & 0xffffff))
 }
 
@@ -52,7 +60,7 @@ fn full(frame: &AsciiFrame, color: bool) -> String {
                     active_color = Some(next);
                 }
             }
-            output.push(frame.chars[i] as char);
+            output.push(frame.character(i));
         }
         if row + 1 < frame.rows {
             output.push_str("\r\n");
@@ -96,7 +104,7 @@ pub fn format_frame(
                         active_color = Some(next);
                     }
                 }
-                output.push(frame.chars[i] as char);
+                output.push(frame.character(i));
                 col += 1;
                 if col >= frame.cols || !changed(frame, previous, row * frame.cols + col, color) {
                     break;

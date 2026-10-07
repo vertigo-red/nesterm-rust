@@ -1,5 +1,7 @@
+mod common;
 use nesterm_rust::{
     ansi::{ENTER_SEQUENCE, EXIT_SEQUENCE},
+    recorder::Recorder,
     renderer::AsciiFrame,
     terminal::{RawMode, TerminalSession, assert_size},
 };
@@ -72,6 +74,41 @@ fn short_writes_restore_terminal_and_raw_mode_exactly_once() {
 }
 
 #[test]
+fn recording_preserves_literal_unicode_through_short_writes() {
+    let temp = common::TempDir::new();
+    let path = temp.0.join("unicode.cast");
+    let state = Rc::new(RefCell::new(State::default()));
+    let mut frame = AsciiFrame {
+        cols: 40,
+        rows: 25,
+        chars: vec![b' '; 1000],
+        colors: vec![0xffffff; 1000],
+        unicode: Default::default(),
+    };
+    for (i, c) in "Привет".chars().enumerate() {
+        frame.put_character(i, c);
+    }
+    let recorder = Recorder::create(&path, 40, 25).unwrap();
+    let mut terminal =
+        TerminalSession::new(Writer(state.clone()), Raw(state.clone()), Some(recorder));
+    terminal.enter(false).unwrap();
+    terminal.draw(&frame, true, None).unwrap();
+    terminal.close().unwrap();
+    let actual = String::from_utf8(state.borrow().bytes.clone()).unwrap();
+    let data = std::fs::read_to_string(path).unwrap();
+    let events: Vec<serde_json::Value> = data
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let recorded: String = events[1..]
+        .iter()
+        .map(|event| event[2].as_str().unwrap())
+        .collect();
+    assert_eq!(recorded, actual);
+    assert!(actual.contains("Привет"));
+}
+
+#[test]
 fn dropping_after_draw_error_attempts_exit_and_restores_raw_mode() {
     let state = Rc::new(RefCell::new(State::default()));
     {
@@ -84,6 +121,7 @@ fn dropping_after_draw_error_attempts_exit_and_restores_raw_mode() {
             rows: 1,
             chars: vec![b'X'],
             colors: vec![0xffffff],
+            unicode: Default::default(),
         };
         assert!(terminal.draw(&frame, true, None).is_err());
     }

@@ -6,9 +6,10 @@ use crate::{
     input::{Control, InputController, InputEvent, InputParser, Key},
     recorder::Recorder,
     renderer::{AsciiFrame, AsciiRenderer},
+    text::TextRenderer,
 };
 use std::{
-    io::{self, IsTerminal, Write},
+    io::{self, IsTerminal, Read, Write},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -261,6 +262,22 @@ pub fn run(options: &Options) -> Result<()> {
     let mut emulator = Emulator::new();
     emulator.load(&bytes)?;
     let mut renderer = AsciiRenderer::new(options.cols, options.rows, options.mode, options.color)?;
+    let font = options
+        .text_font
+        .as_ref()
+        .map(|path| -> io::Result<String> {
+            let mut json = String::new();
+            std::fs::File::open(path)?
+                .take(1024 * 1024 + 1)
+                .read_to_string(&mut json)?;
+            Ok(json)
+        })
+        .transpose()?;
+    let mut text = if options.text {
+        Some(TextRenderer::new(&bytes, font.as_deref())?)
+    } else {
+        None
+    };
     let stopping = Arc::new(AtomicBool::new(false));
     let signal_flag = Arc::clone(&stopping);
     ctrlc::set_handler(move || signal_flag.store(true, Ordering::Relaxed))?;
@@ -336,7 +353,10 @@ pub fn run(options: &Options) -> Result<()> {
             }
             now = started.elapsed().as_secs_f64();
             if emulator.frames() > 0 && (previous.is_none() || now >= next_render) {
-                let frame = renderer.render(emulator.pixels())?;
+                let mut frame = renderer.render(emulator.pixels())?;
+                if let Some(text) = &mut text {
+                    text.apply(emulator.pixels(), &mut frame, options.color)?;
+                }
                 session.draw(&frame, options.color, previous.as_ref())?;
                 previous = Some(frame);
                 next_render = (next_render + render_period).max(now + render_period);

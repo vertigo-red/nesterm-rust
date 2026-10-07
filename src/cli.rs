@@ -2,11 +2,13 @@ use crate::{Result, renderer::Mode};
 use std::{ffi::OsString, path::PathBuf};
 
 pub const HELP: &str = "Usage: nesterm [options] <rom.nes>\n\n\
-Play NES games as printable ASCII in your terminal.\n\n\
+Play NES games as ASCII art with readable text in your terminal.\n\n\
 Options:\n\
   --mono             disable ANSI foreground colors\n\
   --mode <mode>      shape or ramp (default: shape)\n\
   --size <grid>      40x25 or 64x30 (default: 40x25)\n\
+  --text <mode>      auto or off (default: auto)\n\
+  --text-font <path> additional bitmap font mapping (JSON)\n\
   --fps <number>     maximum redraw rate, up to 240 (default: 30)\n\
   --seconds <number> stop after this many seconds\n\
   --record <path>    record actual ANSI output as asciicast v2\n\
@@ -30,6 +32,8 @@ pub struct Options {
     pub rom: Option<PathBuf>,
     pub help: bool,
     pub version: bool,
+    pub text: bool,
+    pub text_font: Option<PathBuf>,
 }
 
 impl Default for Options {
@@ -45,6 +49,8 @@ impl Default for Options {
             rom: None,
             help: false,
             version: false,
+            text: true,
+            text_font: None,
         }
     }
 }
@@ -69,6 +75,14 @@ impl Options {
                 "-V" | "--version" => out.version = true,
                 "--mono" => out.color = false,
                 "--record" => out.record = Some(value(&mut args, argument)?.into()),
+                "--text-font" => out.text_font = Some(value(&mut args, argument)?.into()),
+                "--text" => {
+                    out.text = match value(&mut args, argument)?.to_str() {
+                        Some("auto") => true,
+                        Some("off") => false,
+                        _ => return Err("--text must be auto or off".into()),
+                    }
+                }
                 "--mode" => {
                     out.mode = match value(&mut args, argument)?.to_str() {
                         Some("shape") => Mode::Shape,
@@ -95,6 +109,9 @@ impl Options {
         }
         if !out.help && !out.version && out.rom.is_none() {
             return Err("a ROM path is required".into());
+        }
+        if !out.text && out.text_font.is_some() {
+            return Err("--text-font requires --text auto".into());
         }
         Ok(out)
     }

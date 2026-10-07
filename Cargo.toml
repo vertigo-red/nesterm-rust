@@ -1,14 +1,14 @@
 [package]
 name = "nesterm-rust"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
-description = "Play NES games as printable ASCII in your terminal"
+description = "Play NES games as ASCII art with readable text in your terminal"
 license = "MIT"
 repository = "https://github.com/vertigo-red/nesterm-rust"
 readme = "README.md"
 default-run = "nesterm"
-include = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE", "LICENSES-glyphs.txt", "THIRD_PARTY_NOTICES.md", "licenses/**", "docs/**", "scripts/**"]
+include = ["src/**", "tests/**", "fonts/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE", "LICENSES-glyphs.txt", "THIRD_PARTY_NOTICES.md", "licenses/**", "docs/**", "scripts/**"]
 
 [[bin]]
 name = "nesterm"
@@ -19,6 +19,7 @@ crossterm = "0.29"
 ctrlc = { version = "3.5", features = ["termination"] }
 serde_json = "1.0"
 tetanes-core = "=0.17.0"
+unicode-width = "=0.1.14"
 
 [dev-dependencies]
 vt100 = "0.15.2"

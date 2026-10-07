@@ -352,12 +352,13 @@ dependencies = [
 
 [[package]]
 name = "nesterm-rust"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crossterm",
  "ctrlc",
  "serde_json",
  "tetanes-core",
+ "unicode-width",
  "vt100",
 ]
 

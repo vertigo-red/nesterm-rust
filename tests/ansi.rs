@@ -6,6 +6,7 @@ fn solid(cols: usize, rows: usize) -> AsciiFrame {
         rows,
         chars: vec![b'.'; cols * rows],
         colors: vec![0x123456; cols * rows],
+        unicode: Default::default(),
     }
 }
 
@@ -16,7 +17,7 @@ fn assert_screen(parser: &vt100::Parser, frame: &AsciiFrame, color: bool) {
             let i = row * frame.cols + col;
             assert_eq!(
                 cell.contents(),
-                (frame.chars[i] as char).to_string(),
+                frame.character(i).to_string(),
                 "cell={row},{col}"
             );
             if color {
@@ -96,5 +97,47 @@ fn malicious_cells_and_inconsistent_lengths_are_rejected() {
     assert!(format_frame(&frame, true, None).is_err());
     assert!(format_frame(&frame, false, None).is_ok());
     frame.cols = 0;
+    assert!(format_frame(&frame, false, None).is_err());
+}
+
+#[test]
+fn unicode_changes_removals_and_last_column_converge_without_ghosts() {
+    let first = solid(40, 25);
+    let mut next = first.clone();
+    for (i, c) in "Привет".chars().enumerate() {
+        next.put_character(39 + i, c);
+    }
+    next.put_character(999, 'Я');
+    let mut parser = vt100::Parser::new(25, 40, 0);
+    parser.process(format_frame(&first, true, None).unwrap().as_bytes());
+    parser.process(format_frame(&next, true, Some(&first)).unwrap().as_bytes());
+    assert_screen(&parser, &next, true);
+    let mut changed = next.clone();
+    changed.put_character(39, 'Р');
+    changed.put_character(40, ' ');
+    changed.put_character(999, '!');
+    parser.process(
+        format_frame(&changed, true, Some(&next))
+            .unwrap()
+            .as_bytes(),
+    );
+    assert_screen(&parser, &changed, true);
+    parser.process(
+        format_frame(&first, true, Some(&changed))
+            .unwrap()
+            .as_bytes(),
+    );
+    assert_screen(&parser, &first, true);
+}
+
+#[test]
+fn unicode_cells_reject_controls_wide_and_combining_characters() {
+    for c in ['\u{001b}', '\u{0085}', '\u{0301}', '界', '😀'] {
+        let mut frame = solid(40, 25);
+        frame.unicode.insert(5, c);
+        assert!(format_frame(&frame, false, None).is_err(), "{c:?}");
+    }
+    let mut frame = solid(40, 25);
+    frame.unicode.insert(1000, 'П');
     assert!(format_frame(&frame, false, None).is_err());
 }

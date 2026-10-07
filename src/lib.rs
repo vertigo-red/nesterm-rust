@@ -7,5 +7,7 @@ pub mod input;
 pub mod recorder;
 pub mod renderer;
 pub mod terminal;
+pub mod text;
+mod text_font;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

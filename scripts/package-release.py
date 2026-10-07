@@ -97,9 +97,11 @@ def package(target, destination):
     files = {executable: binary.read_bytes()}
     for name in ("README.md", "LICENSE", "LICENSES-glyphs.txt", "THIRD_PARTY_NOTICES.md"):
         files[name] = (ROOT / name).read_bytes()
-    for path in sorted((ROOT / "licenses").rglob("*")):
-        if path.is_file():
-            files[path.relative_to(ROOT).as_posix()] = path.read_bytes()
+    for directory in ("licenses", "fonts"):
+        for path in sorted((ROOT / directory).rglob("*")):
+            if path.is_file():
+                files[path.relative_to(ROOT).as_posix()] = path.read_bytes()
+    files["docs/text-rendering.md"] = (ROOT / "docs/text-rendering.md").read_bytes()
     files.update(dependency_notices(target))
     prefix = f"nesterm-v{version()}-{target}"
     destination.mkdir(parents=True, exist_ok=True)
@@ -145,7 +147,8 @@ def checksums(destination):
             executable = "nesterm"
         required = {f"{prefix}/{file}" for file in (
             executable, "README.md", "LICENSE", "LICENSES-glyphs.txt", "THIRD_PARTY_NOTICES.md",
-            "licenses/dependencies/INDEX.txt", "licenses/Rust-COPYRIGHT-library.html")}
+            "licenses/dependencies/INDEX.txt", "licenses/Rust-COPYRIGHT-library.html",
+            "licenses/font8x8-Public-Domain.txt", "fonts/cyrillic-demo.json", "docs/text-rendering.md")}
         if not required <= members or any(not member.startswith(prefix + "/") for member in members):
             raise ValueError(f"Incomplete archive: {name}")
         with path.open("rb") as stream:

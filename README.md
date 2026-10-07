@@ -1,8 +1,9 @@
 # nesterm-rust
 
 A native Rust port of [kathoc/nesterm](https://github.com/kathoc/nesterm).
-Play NES games in a terminal using **only the 95 printable ASCII characters**.
-No blocks, Braille, sixel, or graphical UI. The application and its NES core
+Play NES games as ASCII art, with **readable text for recognized fonts**.
+Graphics use the 95 printable ASCII characters; recognized labels can also use
+single-column Unicode, including Cyrillic. No blocks, Braille, sixel, or graphical UI. The application and its NES core
 are Rust; **Node.js is not needed**.
 
 ## Download and run
@@ -95,6 +96,8 @@ nesterm [options] <rom.nes>
 |---|---|---|
 | `--size 40x25` / `--size 64x30` | `40x25` | Character grid |
 | `--mode shape` / `--mode ramp` | `shape` | Shape matching or brightness ramp |
+| `--text auto` / `--text off` | `auto` | Readable small text and ASCII contours for recognized large text |
+| `--text-font path.json` | Off | Add exact bitmap-to-character mappings, including Cyrillic |
 | `--mono` | Color | Disable per-cell ANSI foreground colors |
 | `--fps N` | `30` | Maximum redraw rate, positive and at most 240 |
 | `--seconds N` | Unlimited | Stop after a positive number of seconds |
@@ -115,6 +118,38 @@ The emulation clock is independent of redraws: approximately **60.0988 Hz for
 NTSC** and **50.007 Hz for PAL/Dendy**, selected by the core from ROM metadata.
 Output is synchronous with bounded input buffering and at most five catch-up
 frames per loop.
+
+## Readable text
+
+Hybrid rendering is enabled by default. A confidently matched label is printed
+as ordinary characters when its font fits within one terminal row and its text
+fits within the original horizontal area. Larger recognized text is drawn as
+ASCII contours using `|`, `_`, `-`, `/`, `\\`, and `#`, preserving its size and
+position. An unknown or partly obscured word stays in the usual graphics mode.
+Contour detail is limited by the selected grid; prefer `64x30`.
+
+```powershell
+.\nesterm.exe ".\Super Mario Bros. 3 (Europe).nes" --size 64x30 --text auto
+```
+
+The European Mario 3 ROM supplied for development was verified: the player
+menu, copyright digits, `Nintendo`, `WORLD`, score and timer are readable; the
+large `SUPER`, `MARIO BROS.` and `3` use contours. The profile is selected by an
+exact CHR fingerprint. Its source contains tile locations and labels, and reads
+the font graphics from your ROM at startup. Other revisions and ROM hacks may
+have different font layouts.
+
+This is exact font matching rather than a general OCR model. The renderer also
+tries to find ordered Latin alphabets and digit sets in CHR-ROM; their discovery
+is heuristic, and coverage varies by game. Arbitrary stylized fonts, CHR-RAM
+fonts, non-integer scaling, and partially hidden letters need additional font
+mappings or remain graphics. No words are translated or completed from a dictionary.
+
+For a game using a Cyrillic bitmap font, provide its actual glyph shapes with
+`--text-font my-font.json`. The included `fonts/cyrillic-demo.json` demonstrates
+`Привет`; it is a format example, not a font map for every Russian ROM. See
+[docs/text-rendering.md](docs/text-rendering.md) for the format and matching rules.
+Use `--text off` to select the original v0.1 ASCII renderer.
 
 ## Compatibility and differences from JS
 
@@ -158,6 +193,8 @@ Tests cover:
   legacy deadlines, pause controls, and malformed sequences.
 - Full/diff convergence in an independent `vt100` parser at exactly 40×25 and
   64×30, short writes, and cleanup after simulated output errors.
+- Literal Cyrillic text, scaled ASCII contours, unknown-letter fallback, safe
+  Unicode cells, font validation, and a user-enabled Mario 3 text/profile test.
 - Real POSIX PTYs: sizes, shrink failure, keyboard quit, SIGTERM, pause/resume,
   restored termios settings, and byte-exact asciicast output.
 
@@ -166,6 +203,13 @@ Optional testing with a user-supplied ROM:
 ```sh
 NESTERM_ROM="/path/to/game.nes" cargo test --locked --test emulator \
   optional_user_rom_integration -- --ignored
+```
+
+To verify the supported European Mario 3 profile with your own ROM:
+
+```sh
+NESTERM_ROM="/path/to/Super Mario Bros. 3 (Europe).nes" cargo test --locked --release \
+  --test text optional_mario_text_and_logo_integration -- --ignored
 ```
 
 To regenerate reference fixtures, check out the upstream commit documented in

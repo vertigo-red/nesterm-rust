@@ -3,7 +3,7 @@ use crate::{
     Result,
     glyphs::{GLYPHS, GLYPHS_TALL},
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub const WIDTH: usize = 256;
 pub const HEIGHT: usize = 240;
@@ -23,13 +23,35 @@ pub struct AsciiFrame {
     pub rows: usize,
     pub chars: Vec<u8>,
     pub colors: Vec<u32>,
+    /// Optional single-column Unicode cells used by recognized text only.
+    pub unicode: BTreeMap<usize, char>,
 }
 
 impl AsciiFrame {
+    pub fn character(&self, index: usize) -> char {
+        self.unicode
+            .get(&index)
+            .copied()
+            .unwrap_or(self.chars[index] as char)
+    }
+
+    pub fn put_character(&mut self, index: usize, character: char) {
+        if character.is_ascii() {
+            self.chars[index] = character as u8;
+            self.unicode.remove(&index);
+        } else {
+            self.chars[index] = b' ';
+            self.unicode.insert(index, character);
+        }
+    }
+
     pub fn text(&self) -> String {
-        self.chars
-            .chunks(self.cols.max(1))
-            .map(|row| String::from_utf8_lossy(row).into_owned())
+        (0..self.rows)
+            .map(|row| {
+                (0..self.cols)
+                    .map(|col| self.character(row * self.cols + col))
+                    .collect::<String>()
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -71,6 +93,7 @@ impl AsciiRenderer {
             rows: self.rows,
             chars: Vec::with_capacity(self.cols * self.rows),
             colors: Vec::with_capacity(self.cols * self.rows),
+            unicode: BTreeMap::new(),
         };
         for cy in 0..self.rows {
             for cx in 0..self.cols {
@@ -201,6 +224,7 @@ impl ShapeMatcher {
             rows: self.rows,
             chars: Vec::with_capacity(self.previous.len()),
             colors: Vec::with_capacity(self.previous.len()),
+            unicode: BTreeMap::new(),
         };
         for cell in 0..self.previous.len() {
             let (mut mean, mut sum_r, mut sum_g, mut sum_b, mut weight) = (0.0, 0.0, 0.0, 0.0, 0.0);

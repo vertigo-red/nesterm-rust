@@ -9,12 +9,21 @@ MIT, copyright (c) 2026 kathoc. The complete notice is in [LICENSE](LICENSE).
 converted to Rust arrays. They were sampled from DejaVu Sans Mono. The font
 itself is not bundled. Full notices are in [LICENSES-glyphs.txt](LICENSES-glyphs.txt).
 
+`src/text_font.rs` contains the printable Basic Latin rows from Daniel Hepper's
+[font8x8_basic.h](https://github.com/dhepper/font8x8/blob/master/font8x8_basic.h),
+Git blob `125cf165c93f0bcf954d570aa6e3c84d9b6bacf4`, with bit order reversed
+for the renderer. The source declares these VGA bitmaps **Public Domain** and
+credits Daniel Hepper, Marcel Sondaar, and International Business Machines.
+The declaration is reproduced in [licenses/font8x8-Public-Domain.txt](licenses/font8x8-Public-Domain.txt).
+`fonts/cyrillic-demo.json` is an original example supplied under this project's MIT license.
+
 | Runtime dependency | License | Purpose |
 |---|---|---|
 | [tetanes-core 0.17.0](https://github.com/lukexor/tetanes) | MIT OR Apache-2.0 | Rust NES emulation |
 | [crossterm](https://github.com/crossterm-rs/crossterm) | MIT | Raw mode, size, Windows input |
 | [ctrlc](https://github.com/Detegr/rust-ctrlc) | MIT OR Apache-2.0 | SIGINT/SIGTERM shutdown |
 | [serde_json](https://github.com/serde-rs/json) | MIT OR Apache-2.0 | Asciicast serialization |
+| [unicode-width 0.1.14](https://github.com/unicode-rs/unicode-width) | MIT OR Apache-2.0 | Single-column Unicode validation |
 
 `vt100` (MIT) is development-only and independently interprets ANSI output.
 `Cargo.lock` records resolved versions and transitive dependencies. Cargo
