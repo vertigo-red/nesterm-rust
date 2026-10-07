@@ -22,4 +22,11 @@ downloads dependencies under their respective license terms. The TetaNES MIT
 notice is also included in `licenses/tetanes-core-MIT.txt` because its published
 crate omits the repository's license file.
 
+Release archives include notices for the target's normal and build dependency
+graph under `licenses/dependencies/`, with an `INDEX.txt` listing exact versions
+and declared licenses. The complete, unmodified `option-ext` crate source is
+provided there under MPL-2.0. Rust standard-library notices are copied from the
+build toolchain into `licenses/Rust-COPYRIGHT-library.html`. Static Linux builds
+also include the musl copyright notice.
+
 No Node.js runtime, JavaScript NES core, GUI, or commercial ROM is bundled.

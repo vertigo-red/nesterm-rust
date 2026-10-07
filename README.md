@@ -5,7 +5,31 @@ Play NES games in a terminal using **only the 95 printable ASCII characters**.
 No blocks, Braille, sixel, or graphical UI. The application and its NES core
 are Rust; **Node.js is not needed**.
 
-## Build and install
+## Download and run
+
+Download a ready-to-run archive from [Releases](https://github.com/vertigo-red/nesterm-rust/releases/latest).
+No Rust, Cargo, or Node.js installation is needed.
+
+| System | File suffix |
+|---|---|
+| Linux x86-64 | `x86_64-unknown-linux-musl.tar.gz` (static; no glibc dependency) |
+| macOS Apple Silicon | `aarch64-apple-darwin.tar.gz` |
+| macOS Intel | `x86_64-apple-darwin.tar.gz` |
+| Windows x86-64 | `x86_64-pc-windows-msvc.zip` |
+
+Extract the archive and open a terminal in its directory:
+
+```sh
+./nesterm "/path/to/game.nes" --size 64x30 --fps 60
+```
+
+On Windows use Windows Terminal and `./nesterm.exe "C:/path/to/game.nes"`.
+macOS binaries target macOS 13 or newer and are tested on macOS 15. They are
+not Apple-signed or notarized, so the first launch may require approval in
+System Settings → Privacy & Security. Each release includes `SHA256SUMS`
+for verifying downloads, full license notices, and no game ROMs.
+
+## Build from source
 
 You need Rust **1.88 or newer** and a native linker:
 
@@ -25,8 +49,8 @@ cargo build --locked --release
 
 On Windows the executable is `target\release\nesterm.exe`; use Windows Terminal.
 Linux and macOS are the primary interactive targets. CI builds and tests all
-three platforms and uploads native executables as workflow artifacts. A built
-executable does not require Rust or Cargo. Linux builds use the system's glibc.
+three platforms and uploads native executables as workflow artifacts. Normal
+Linux source builds use the system's glibc; release archives use static musl.
 
 If the installed command is not found, add `~/.cargo/bin` to your PATH.
 Bring your own `.nes` ROM; ROMs are not downloaded or shipped.

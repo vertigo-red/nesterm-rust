@@ -1,4 +1,7 @@
 /target/
+/dist/
+/release-files/
+__pycache__/
 *.cast
 *.nes
 *.sav

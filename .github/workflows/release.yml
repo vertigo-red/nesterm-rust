@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nesterm-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read release version
+        id: version
+        run: |
+          python - <<'PY'
+          import os
+          import runpy
+          from pathlib import Path
+          packaging = runpy.run_path('scripts/package-release.py')
+          tag = 'v' + packaging['version']()
+          assert Path(f'.github/release-notes/{tag}.md').is_file(), 'Missing release notes'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'tag={tag}\n')
+          PY
+      - name: Refuse to overwrite an existing version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name' > /tmp/releases.txt
+          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" --jq '.[].ref' > /tmp/tags.txt
+          if grep -Fxq "$TAG" /tmp/releases.txt || grep -Fxq "refs/tags/$TAG" /tmp/tags.txt; then
+            echo "Version $TAG already exists; bump Cargo.toml and add release notes."
+            exit 1
+          fi
+
+  build:
+    needs: prepare
+    name: Build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            rustflags: ''
+          - os: macos-15
+            target: aarch64-apple-darwin
+            rustflags: ''
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            rustflags: ''
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            rustflags: '-C target-feature=+crt-static'
+    runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux linker
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Test native target
+        run: cargo test --locked --target '${{ matrix.target }}'
+      - name: Build executable
+        run: cargo build --locked --release --target '${{ matrix.target }}'
+      - name: Check Linux binary is static
+        if: runner.os == 'Linux'
+        run: |
+          readelf -l target/${{ matrix.target }}/release/nesterm > /tmp/elf-headers.txt
+          if grep -q INTERP /tmp/elf-headers.txt; then
+            echo 'Unexpected dynamic ELF interpreter'
+            exit 1
+          fi
+      - name: POSIX PTY integration
+        if: runner.os != 'Windows'
+        run: python scripts/pty-smoke.py target/${{ matrix.target }}/release/nesterm
+      - name: Package executable and notices
+        run: python scripts/package-release.py --target '${{ matrix.target }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-files
+      - name: Validate archives and calculate SHA-256
+        run: |
+          python scripts/package-release.py --checksums --output release-files
+          cd release-files
+          sha256sum --check SHA256SUMS
+      - name: Upload complete draft and publish
+        run: |
+          gh release create "$TAG" release-files/*.tar.gz release-files/*.zip release-files/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "nesterm $TAG" --notes-file ".github/release-notes/$TAG.md" --draft
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
