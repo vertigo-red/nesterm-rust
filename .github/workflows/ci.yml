@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Lints
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --locked
+      - name: Build native executable
+        run: cargo build --locked --release
+      - name: POSIX PTY integration
+        if: runner.os != 'Windows'
+        run: python3 scripts/pty-smoke.py target/release/nesterm
+      - name: Upload native executable and notices
+        uses: actions/upload-artifact@v4
+        with:
+          name: nesterm-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            target/release/nesterm
+            target/release/nesterm.exe
+            LICENSE
+            LICENSES-glyphs.txt
+            THIRD_PARTY_NOTICES.md
+            licenses/
+          if-no-files-found: error
+
+  msrv:
+    name: Rust 1.88
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+      - run: cargo test --locked

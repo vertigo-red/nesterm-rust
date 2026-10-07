@@ -1,0 +1,5 @@
+/target/
+*.cast
+*.nes
+*.sav
+*.sram
